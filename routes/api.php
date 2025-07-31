@@ -26,6 +26,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/proposals', [ProposalController::class, 'index']);
         Route::post('/proposals', [ProposalController::class, 'store']);
         Route::get('/proposals/{id}', [ProposalController::class, 'show']);
+        Route::put('/proposals/{id}', [ProposalController::class, 'update']);
+        Route::delete('/proposals/{id}', [ProposalController::class, 'destroy']);
     });
 
     // Fitur Subbag Program
