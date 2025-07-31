@@ -33,6 +33,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Fitur Subbag Program
     Route::prefix('subbag')->middleware('role:subbag_program')->group(function () {
         Route::get('/proposals', [SubbagController::class, 'index']);
+        Route::get('/proposals/{id}', [SubbagController::class, 'show']);
         Route::put('/proposals/{id}/assess', [SubbagController::class, 'assess']); // Memberi nilai & approve/reject
     });
 

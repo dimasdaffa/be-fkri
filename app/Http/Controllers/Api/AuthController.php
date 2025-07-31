@@ -7,27 +7,39 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 
 class AuthController extends Controller
 {
     public function register(Request $request)
     {
+        $request->mergeIfMissing(['role' => 'pengusul']);
+
+        if ($request->role !== 'subbag_program') {
+            $request->merge(['wilayah_kewenangan' => null]);
+        }
+        
         $validated = $request->validate([
             'full_name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
             'password' => ['required', 'confirmed', Password::defaults()],
+            'role' => ['sometimes', 'string', Rule::in(['pengusul', 'subbag_program', 'kabid_krpi', 'kepala_brida'])],
+            'wilayah_kewenangan' => ['nullable', 'string', 'max:255', 'required_if:role,subbag_program'],
         ]);
 
         $user = User::create([
             'full_name' => $validated['full_name'],
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
-            'role' => 'pengusul', // Default role for registration
+            'role' => $validated['role'],
+            'wilayah_kewenangan' => $validated['wilayah_kewenangan'] ?? null,
         ]);
 
         return response()->json(['message' => 'Registration successful'], 201);
     }
+
+
 
     public function login(Request $request)
     {

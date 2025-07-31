@@ -15,17 +15,25 @@ class SubbagController extends Controller
     public function index()
     {
         $user = Auth::user();
-        $proposals = Proposal::where('status', 'diajukan')
+        $statuses = ['diajukan', 'diproses_kabid', 'ditolak'];
+
+        $proposals = Proposal::whereIn('status', $statuses)
             ->where('wilayah_kewenangan_lembaga', $user->wilayah_kewenangan)
             ->latest()
             ->get();
-
         return response()->json($proposals);
     }
+    public function show(string $id)
+    {
+        $user = Auth::user();
+        $proposal = Proposal::findOrFail($id);
+        if ($proposal->wilayah_kewenangan_lembaga !== $user->wilayah_kewenangan) {
+            return response()->json(['message' => 'Anda tidak memiliki wewenang untuk melihat usulan ini.'], 403);
+        }
 
-    /**
-     * Menilai (skoring) dan memutuskan usulan.
-     */
+        return response()->json($proposal);
+    }
+
     public function assess(Request $request, string $id)
     {
         $validated = $request->validate([
@@ -36,7 +44,6 @@ class SubbagController extends Controller
 
         $proposal = Proposal::findOrFail($id);
 
-        // Penentuan skor dan warna
         $skor = 0;
         $warna = '';
         switch ($validated['penilaian']) {
@@ -58,7 +65,6 @@ class SubbagController extends Controller
                 break;
         }
 
-        // Penentuan status
         $status = ($validated['keputusan'] === 'approve') ? 'diproses_kabid' : 'ditolak';
 
         $proposal->update([
@@ -70,7 +76,7 @@ class SubbagController extends Controller
 
         return response()->json([
             'message' => 'Usulan berhasil dinilai.',
-            'data' => $proposal->fresh(), // Ambil data terbaru dari DB
+            'data' => $proposal->fresh(), 
         ]);
     }
 }
