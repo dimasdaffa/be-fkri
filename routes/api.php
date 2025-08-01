@@ -20,6 +20,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Profile (untuk semua role)
     Route::get('/profile', [ProfileController::class, 'show']);
     Route::put('/profile', [ProfileController::class, 'update']);
+    Route::post('/fcm-token', [ProfileController::class, 'updateFcmToken']);
 
     // Fitur Pengusul
     Route::prefix('pengusul')->middleware('role:pengusul')->group(function () {
