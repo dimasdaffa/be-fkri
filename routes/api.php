@@ -15,6 +15,7 @@ Route::post('/login', [AuthController::class, 'login']);
 
 // Endpoint yang memerlukan autentikasi
 Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/fcm-token', [ProfileController::class, 'updateFcmToken']);
     Route::post('/logout', [AuthController::class, 'logout']);
 
     // Profile (untuk semua role)
@@ -40,6 +41,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Fitur Kabid KRPI
     Route::prefix('kabid')->middleware('role:kabid_krpi')->group(function () {
         Route::get('/proposals', [KabidController::class, 'index']);
+        Route::get('/proposals/{id}', [KabidController::class, 'show']); 
         Route::put('/proposals/{id}/decide', [KabidController::class, 'decide']); // Approve/reject
     });
 

@@ -9,12 +9,30 @@ use Illuminate\Http\Request;
 class KabidController extends Controller
 {
     /**
-     * Menampilkan daftar usulan yang perlu keputusan Kabid.
+     * Menampilkan daftar usulan yang relevan untuk Kabid.
      */
     public function index()
     {
-        $proposals = Proposal::where('status', 'diproses_kabid')->latest()->get();
+        $statuses = ['diproses_kabid', 'diproses_kepala', 'ditolak'];
+
+        $proposals = Proposal::whereIn('status', $statuses)
+            ->where(function ($query) {
+                $query->where('status', '!=', 'ditolak')
+                      ->orWhereNotNull('catatan_kabid');
+            })
+            ->latest()
+            ->get();
+
         return response()->json($proposals);
+    }
+
+    /**
+     * Menampilkan detail satu usulan.
+     */
+    public function show(string $id)
+    {
+        $proposal = Proposal::findOrFail($id);
+        return response()->json($proposal);
     }
 
     /**
