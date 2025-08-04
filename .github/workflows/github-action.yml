@@ -21,7 +21,7 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            REPO="https://${{ secrets.GIT_TOKEN }}@github.com/dirumahrafif/laravel-docker.git"
+            REPO="https://${{ secrets.GIT_TOKEN }}@github.com/dimasdaffa/be-fkri.git"
             DIR="${{ secrets.VPS_PATH }}"
             CONTAINER="laravel_app"
             BRANCH="deploy-github"
