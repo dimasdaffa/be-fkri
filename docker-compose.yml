@@ -1,64 +1,68 @@
-version: '3'
-
 services:
   # PHP Service
   app:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: laravelspeeder-app
+    container_name: laravel_app
     restart: unless-stopped
     tty: true
-    environment:
-      SERVICE_NAME: app
-      SERVICE_TAGS: dev
+    env_file:
+      - .env
     working_dir: /var/www/html
     volumes:
       - ./:/var/www/html
-      - ./php/local.ini:/usr/local/etc/php/conf.d/local.ini
+    depends_on:
+      - db
+      - redis
     networks:
       - app-network
 
   # Nginx Service
   webserver:
     image: nginx:alpine
-    container_name: laravelspeeder-nginx
+    container_name: laravel_nginx
     restart: unless-stopped
     tty: true
     ports:
-      - "80:80"
-      - "443:443"
+      - "8080:80"
     volumes:
       - ./:/var/www/html
-      - ./nginx/conf.d/:/etc/nginx/conf.d/
+      - ./nginx/conf.d/:/etc/nginx/conf.d
+    depends_on:
+      - app
     networks:
       - app-network
 
   # MySQL Service
   db:
     image: mysql:8.0
-    container_name: laravelspeeder-db
+    container_name: laravel_mysql
     restart: unless-stopped
     tty: true
-    ports:
-      - "3306:3306"
     environment:
-      MYSQL_DATABASE: laravel
-      MYSQL_ROOT_PASSWORD: your_mysql_root_password
+      MYSQL_DATABASE: be-fkri
+      MYSQL_ROOT_PASSWORD: root
       SERVICE_TAGS: dev
       SERVICE_NAME: mysql
     volumes:
-      - dbdata:/var/lib/mysql/
+      - db_data:/var/lib/mysql
       - ./mysql/my.cnf:/etc/mysql/my.cnf
     networks:
       - app-network
 
-# Docker Networks
+  # Redis Service
+  redis:
+    image: redis:alpine
+    container_name: laravel_redis
+    restart: unless-stopped
+    tty: true
+    networks:
+      - app-network
+
+volumes:
+  db_data:
+
 networks:
   app-network:
     driver: bridge
-
-# Volumes
-volumes:
-  dbdata:
-    driver: local

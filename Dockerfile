@@ -26,21 +26,31 @@ RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 # Install extensions
 RUN docker-php-ext-install pdo_mysql mbstring zip exif pcntl bcmath opcache
 
+# Install PHP extensions and Redis
+RUN pecl install redis \
+    && docker-php-ext-enable redis
+
 # Install composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Copy application files
-COPY . .
+# Create system user to run Composer and Artisan Commands
+RUN groupadd -g 1000 www && \
+    useradd -u 1000 -ms /bin/bash -g www www
+
+# Copy existing application directory contents
+COPY --chown=www:www . /var/www/html
 
 # Set permissions
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 RUN chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+
+# Set proper ownership for Laravel storage directories
+RUN chown -R www:www /var/www/html/storage /var/www/html/bootstrap/cache
+
+# Change current user to www
+USER www
 
 # Install dependencies
 RUN composer install --no-interaction --no-dev --optimize-autoloader
-
-# Generate application key
-RUN php artisan key:generate
 
 # Expose port 9000 (PHP-FPM)
 EXPOSE 9000
