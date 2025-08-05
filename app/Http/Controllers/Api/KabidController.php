@@ -13,15 +13,18 @@ class KabidController extends Controller
      */
     public function index()
     {
-        $statuses = ['diproses_kabid', 'diproses_kepala', 'ditolak'];
+        $proposals = Proposal::where(function ($query) {
+            $query->where('status', 'diproses_kabid');
 
-        $proposals = Proposal::whereIn('status', $statuses)
-            ->where(function ($query) {
-                $query->where('status', '!=', 'ditolak')
-                      ->orWhereNotNull('catatan_kabid');
-            })
-            ->latest()
-            ->get();
+            $query->orWhere('status', 'diproses_kepala');
+
+            $query->orWhere(function ($subQuery) {
+                $subQuery->where('status', 'ditolak')
+                         ->whereNotNull('catatan_kabid'); 
+            });
+        })
+        ->latest()
+        ->get();
 
         return response()->json($proposals);
     }
@@ -31,21 +34,31 @@ class KabidController extends Controller
      */
     public function show(string $id)
     {
-        $proposal = Proposal::findOrFail($id);
+        // Logika query sama dengan index() untuk konsistensi keamanan
+        $proposal = Proposal::where('id', $id)
+            ->where(function ($query) {
+                $query->where('status', 'diproses_kabid');
+                $query->orWhere('status', 'diproses_kepala');
+                $query->orWhere(function ($subQuery) {
+                    $subQuery->where('status', 'ditolak')
+                             ->whereNotNull('catatan_kabid');
+                });
+            })
+            ->firstOrFail();
+
         return response()->json($proposal);
     }
 
-    /**
-     * Memutuskan usulan (approve/reject).
-     */
+    // ... method decide() tetap sama ...
     public function decide(Request $request, string $id)
     {
+        // Logika ini sudah benar, kita akan ubah validasinya di bawah
         $validated = $request->validate([
             'keputusan' => ['required', 'in:approve,reject'],
-            'catatan' => ['nullable', 'string'],
+            'catatan'   => ['nullable', 'string'], // Dibuat opsional kembali
         ]);
 
-        $proposal = Proposal::findOrFail($id);
+        $proposal = Proposal::whereIn('status', ['diproses_kabid'])->findOrFail($id);
 
         $status = ($validated['keputusan'] === 'approve') ? 'diproses_kepala' : 'ditolak';
 
@@ -56,7 +69,7 @@ class KabidController extends Controller
 
         return response()->json([
             'message' => 'Keputusan Kabid KRPI berhasil disimpan.',
-            'data' => $proposal->fresh(),
+            'data'    => $proposal->fresh(),
         ]);
     }
 }
