@@ -48,6 +48,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Fitur Kepala BRIDA
     Route::prefix('kepala')->middleware('role:kepala_brida')->group(function () {
         Route::get('/proposals', [KepalaController::class, 'index']);
+        Route::get('/proposals/{id}', [KepalaController::class, 'show']);
         Route::put('/proposals/{id}/decide', [KepalaController::class, 'decide']); // Approve/reject final
     });
 });

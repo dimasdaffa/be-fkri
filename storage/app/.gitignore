@@ -2,3 +2,5 @@
 !private/
 !public/
 !.gitignore
+# Ignore Firebase service account key
+/storage/app/firebase/*.json
