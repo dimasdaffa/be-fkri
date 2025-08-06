@@ -3,12 +3,16 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\NotificationLog;
 use App\Models\Proposal;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 // 1. Import kelas Notifikasi yang sudah kita buat
 use App\Notifications\ProposalApprovedBySubbag;
+use Illuminate\Support\Facades\Log;
+use Kreait\Firebase\Messaging\CloudMessage;
+use Kreait\Firebase\Messaging\Notification as MessagingNotification;
 
 class SubbagController extends Controller
 {
@@ -48,11 +52,10 @@ class SubbagController extends Controller
     /**
      * Menilai sebuah usulan (approve/reject) dan mengirim notifikasi jika disetujui.
      */
-    public function assess(Request $request, string $id)
+public function assess(Request $request, string $id)
     {
         $user = Auth::user();
 
-        // Validasi input dari request
         $validated = $request->validate([
             'penilaian' => ['required', Rule::in(['urgent', 'penting', 'normal', 'tidak_penting'])],
             'keputusan' => ['required', Rule::in(['approve', 'reject'])],
@@ -61,37 +64,24 @@ class SubbagController extends Controller
 
         $proposal = Proposal::findOrFail($id);
 
-        // Otorisasi: Pastikan Subbag hanya bisa menilai usulan di wilayahnya
         if ($proposal->wilayah_kewenangan_lembaga !== $user->wilayah_kewenangan) {
             return response()->json(['message' => 'Anda tidak memiliki wewenang untuk menilai usulan ini.'], 403);
         }
 
-        // Logika untuk menentukan skor dan warna berdasarkan penilaian
+        // ❌ HAPUS BLOK FCM DARI SINI, KITA PINDAHKAN KE BAWAH SETELAH UPDATE
+
         $skor = 0;
         $warna = '';
         switch ($validated['penilaian']) {
-            case 'urgent':
-                $skor = 100;
-                $warna = 'merah';
-                break;
-            case 'penting':
-                $skor = 80;
-                $warna = 'merah muda';
-                break;
-            case 'normal':
-                $skor = 60;
-                $warna = 'biru';
-                break;
-            case 'tidak_penting':
-                $skor = 40; // Sebelumnya 40, bisa disesuaikan
-                $warna = 'gray';
-                break;
+            case 'urgent': $skor = 100; $warna = 'merah'; break;
+            case 'penting': $skor = 80; $warna = 'merah muda'; break;
+            case 'normal': $skor = 60; $warna = 'biru'; break;
+            case 'tidak_penting': $skor = 40; $warna = 'gray'; break;
         }
 
-        // Tentukan status akhir berdasarkan keputusan
         $status = ($validated['keputusan'] === 'approve') ? 'diproses_kabid' : 'ditolak_subbag';
 
-        // Update data proposal di database
+        // Update proposal di database
         $proposal->update([
             'skor' => $skor,
             'warna' => $warna,
@@ -99,24 +89,50 @@ class SubbagController extends Controller
             'catatan_subbag' => $validated['catatan'],
         ]);
 
-        // --- LOGIKA PENGIRIMAN NOTIFIKASI ---
-        // Kirim notifikasi HANYA JIKA keputusan adalah 'approve'
-        if ($validated['keputusan'] === 'approve') {
-            // Ambil data user pengusul dari relasi yang ada di model Proposal
-            $pengusul = $proposal->user;
+        // ✅ PINDAHKAN LOGIKA NOTIFIKASI KE SINI, SETELAH PROPOSAL BERHASIL DI-UPDATE
+        $pengusul = $proposal->user;
 
-            // Pastikan data pengusul ada dan memiliki fcm_token yang tersimpan
+        // Kirim notifikasi HANYA JIKA pengusul ada dan punya fcm_token
+        if ($pengusul && $pengusul->fcm_token) {
+            $messaging = app('firebase.messaging');
+            $keputusanTeks = ($validated['keputusan'] === 'approve') ? 'dilanjutkan ke Kabid' : 'ditolak';
+
+            $title = 'Status Usulan Diperbarui';
+            $body = "Usulan Anda dengan tema '{$proposal->tema_usulan}' telah {$keputusanTeks} oleh Subbag Program.";
+
+            $message = CloudMessage::withTarget('token', $pengusul->fcm_token)
+                ->withNotification(MessagingNotification::create($title, $body))
+                ->withData(['proposal_id' => (string)$proposal->id]); // Kirim data tambahan
+
+            try {
+                $messaging->send($message);
+
+                // ✅ SIMPAN LOG KE DATABASE SETELAH NOTIFIKASI BERHASIL DIKIRIM
+                NotificationLog::create([
+                    'user_id' => $pengusul->id,
+                    'title' => $title,
+                    'body' => $body,
+                ]);
+
+            } catch (\Exception $e) {
+                Log::error('FCM Send Error: ' . $e->getMessage());
+            }
+        }
+        
+        // ❌ HAPUS BLOK INI - Ini adalah logika notifikasi lama yang duplikat
+        /*
+        if ($validated['keputusan'] === 'approve') {
+            $pengusul = $proposal->user;
             if ($pengusul && $pengusul->fcm_token) {
-                // Kirim notifikasi ke pengusul menggunakan kelas notifikasi yang sudah kita buat
                 $pengusul->notify(new ProposalApprovedBySubbag($proposal));
             }
         }
-        // --- AKHIR LOGIKA NOTIFIKASI ---
+        */
 
-        // Kembalikan respons sukses dengan data proposal yang sudah ter-update
         return response()->json([
             'message' => 'Usulan berhasil dinilai.',
-            'data' => $proposal->fresh(), // .fresh() untuk mengambil data terbaru dari DB
+            'data' => $proposal->fresh(),
         ]);
     }
+
 }
