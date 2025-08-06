@@ -20,7 +20,7 @@ class KabidController extends Controller
 
             $query->orWhere(function ($subQuery) {
                 $subQuery->where('status', 'ditolak')
-                         ->whereNotNull('catatan_kabid');
+                         ->whereNotNull('catatan_kabid'); 
             });
         })
         ->latest()

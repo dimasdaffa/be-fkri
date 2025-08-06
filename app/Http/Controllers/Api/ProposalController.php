@@ -44,7 +44,7 @@ class ProposalController extends Controller
 
         $filePath = null;
         if ($request->hasFile('file_dukungan')) {
-            $filePath = $request->file('file_dukungan')->store('file_dukungan', 'public');
+            $filePath = $request->file('file_dukungan')->store('file_dukungan', 'public');        
         }
 
         $proposal = Proposal::create(array_merge($validated, [
@@ -122,7 +122,7 @@ class ProposalController extends Controller
                 Storage::delete($proposal->file_dukungan_path);
             }
             // Simpan file baru
-            $validated['file_dukungan_path'] = $request->file('file_dukungan')->store('file_dukungan', 'public');
+            $validated['file_dukungan_path'] = $request->file('file_dukungan')->store('file_dukungan', 'public');       
         }
 
         $proposal->update($validated);
