@@ -5,11 +5,17 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Proposal;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+
+// ✅ Import model dan kelas-kelas yang dibutuhkan
+use App\Models\NotificationLog;
+use Kreait\Firebase\Messaging\CloudMessage;
+use Kreait\Firebase\Messaging\Notification;
 
 class KabidController extends Controller
 {
     /**
-     * Menampilkan daftar usulan yang relevan untuk Kabid.
+     * Menampilkan daftar usulan yang relevan untuk Kabid KRPI.
      */
     public function index()
     {
@@ -49,23 +55,55 @@ class KabidController extends Controller
         return response()->json($proposal);
     }
 
-    // ... method decide() tetap sama ...
+
+    /**
+     * Memberikan keputusan (approve/reject).
+     */
     public function decide(Request $request, string $id)
     {
-        // Logika ini sudah benar, kita akan ubah validasinya di bawah
         $validated = $request->validate([
             'keputusan' => ['required', 'in:approve,reject'],
-            'catatan'   => ['nullable', 'string'], // Dibuat opsional kembali
+            'catatan'   => ['nullable', 'string'],
         ]);
 
-        $proposal = Proposal::whereIn('status', ['diproses_kabid'])->findOrFail($id);
+        $proposal = Proposal::where('status', 'diproses_kabid')->findOrFail($id);
 
-        $status = ($validated['keputusan'] === 'approve') ? 'diproses_kepala' : 'ditolak';
+        $status = ($validated['keputusan'] === 'approve') ? 'diproses_kepala' : 'ditolak_kabid';
 
         $proposal->update([
-            'status' => $status,
+            'status'         => $status,
             'catatan_kabid' => $validated['catatan'],
         ]);
+
+        // ✅ LOGIKA NOTIFIKASI DAN LOGGING
+        $pengusul = $proposal->user;
+
+        if ($pengusul && $pengusul->fcm_token) {
+            $messaging = app('firebase.messaging');
+            $keputusanTeks = ($validated['keputusan'] === 'approve') ? 'dilanjutkan ke Kepala BRIDA' : 'ditolak';
+
+            $title = 'Status Usulan Diperbarui';
+            $body = "Usulan Anda dengan tema '{$proposal->tema_usulan}' telah {$keputusanTeks} oleh Kabid KRPI.";
+
+            $message = CloudMessage::withTarget('token', $pengusul->fcm_token)
+                ->withNotification(Notification::create($title, $body))
+                ->withData(['proposal_id' => (string)$proposal->id]);
+
+            try {
+                $messaging->send($message);
+
+                // SIMPAN LOG KE DATABASE
+                NotificationLog::create([
+                    'user_id' => $pengusul->id,
+                    'title' => $title,
+                    'body' => $body,
+                ]);
+
+            } catch (\Exception $e) {
+                Log::error('FCM Send Error (Kabid): ' . $e->getMessage());
+            }
+        }
+        // --- AKHIR LOGIKA NOTIFIKASI ---
 
         return response()->json([
             'message' => 'Keputusan Kabid KRPI berhasil disimpan.',

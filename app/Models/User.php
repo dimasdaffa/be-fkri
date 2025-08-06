@@ -24,7 +24,8 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
-        'wilayah_kewenangan'
+        'wilayah_kewenangan',
+        'fcm_token',
     ];
 
     /**
@@ -53,5 +54,9 @@ class User extends Authenticatable
     public function proposals(): HasMany
     {
         return $this->hasMany(Proposal::class);
+    }
+    public function notificationLogs()
+    {
+        return $this->hasMany(NotificationLog::class)->latest(); // Selalu urutkan dari yang terbaru
     }
 }

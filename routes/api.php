@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\ProposalController;
 use App\Http\Controllers\Api\SubbagController;
 use App\Http\Controllers\Api\KabidController;
 use App\Http\Controllers\Api\KepalaController;
+use App\Http\Controllers\Api\NotificationController;
 
 // Endpoint untuk Autentikasi & Registrasi (Publik)
 Route::post('/register', [AuthController::class, 'register']);
@@ -17,6 +18,7 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/fcm-token', [ProfileController::class, 'updateFcmToken']);
     Route::post('/logout', [AuthController::class, 'logout']);
+    Route::get('/notifications', [NotificationController::class, 'index']);
 
     // Profile (untuk semua role)
     Route::get('/profile', [ProfileController::class, 'show']);

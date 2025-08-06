@@ -8,6 +8,7 @@
     "require": {
         "php": "^8.2",
         "dedoc/scramble": "^0.12.26",
+        "kreait/laravel-firebase": "^6.1",
         "laravel-notification-channels/fcm": "^5.1",
         "laravel/framework": "^12.0",
         "laravel/sanctum": "^4.2",
