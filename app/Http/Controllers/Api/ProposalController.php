@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Proposal;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 class ProposalController extends Controller
@@ -43,7 +44,7 @@ class ProposalController extends Controller
 
         $filePath = null;
         if ($request->hasFile('file_dukungan')) {
-            $filePath = $request->file('file_dukungan')->store('public/file_dukungan');
+            $filePath = $request->file('file_dukungan')->store('file_dukungan', 'public');
         }
 
         $proposal = Proposal::create(array_merge($validated, [
@@ -52,6 +53,13 @@ class ProposalController extends Controller
             'email_pengusul' => $user->email,
             'file_dukungan_path' => $filePath,
         ]));
+            Log::info('--- Received New Proposal Request via Ngrok ---');
+    Log::info('Request Headers:', $request->headers->all()); // See all headers
+    Log:info('Request Fields:', $request->except('file_dukungan'));
+    Log::info('Checking for file "file_dukungan"...', [$request->hasFile('file_dukungan')]);
+    Log::info('File validity check:', [$request->file('file_dukungan') ? $request->file('file_dukungan')->isValid() : 'File object is null']);
+
+
 
         return response()->json([
             'message' => 'Usulan berhasil diajukan.',
@@ -114,7 +122,7 @@ class ProposalController extends Controller
                 Storage::delete($proposal->file_dukungan_path);
             }
             // Simpan file baru
-            $validated['file_dukungan_path'] = $request->file('file_dukungan')->store('public/file_dukungan');
+            $validated['file_dukungan_path'] = $request->file('file_dukungan')->store('file_dukungan', 'public');
         }
 
         $proposal->update($validated);
