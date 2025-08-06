@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+    'fcm' => [
+        'driver' => 'fcm',
+        // Arahkan ke path file JSON yang sudah Anda simpan
+        'service_account_credentials_json' => storage_path('app/firebase/be-fkri-firebase-adminsdk-fbsvc-a48d4b9dbf.json'),
+    ],
+
 ];
