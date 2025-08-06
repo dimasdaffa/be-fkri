@@ -18,6 +18,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/fcm-token', [ProfileController::class, 'updateFcmToken']);
     Route::post('/logout', [AuthController::class, 'logout']);
 
+    // Test Notifications Endpoint (hanya untuk development)
+    Route::post('/test-notification', [App\Http\Controllers\Api\TestNotificationController::class, 'testFcm']);
+
     // Profile (untuk semua role)
     Route::get('/profile', [ProfileController::class, 'show']);
     Route::put('/profile', [ProfileController::class, 'update']);

@@ -24,7 +24,8 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
-        'wilayah_kewenangan'
+        'wilayah_kewenangan',
+        'fcm_token'
     ];
 
     /**
@@ -48,6 +49,11 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    public function routeNotificationForFcm()
+    {
+        return $this->fcm_token;
     }
 
     public function proposals(): HasMany
