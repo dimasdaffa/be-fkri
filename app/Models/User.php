@@ -25,7 +25,7 @@ class User extends Authenticatable
         'password',
         'role',
         'wilayah_kewenangan',
-        'fcm_token',
+        'fcm_token'
     ];
 
     /**
@@ -51,12 +51,13 @@ class User extends Authenticatable
         ];
     }
 
+    public function routeNotificationForFcm()
+    {
+        return $this->fcm_token;
+    }
+
     public function proposals(): HasMany
     {
         return $this->hasMany(Proposal::class);
-    }
-    public function notificationLogs()
-    {
-        return $this->hasMany(NotificationLog::class)->latest(); // Selalu urutkan dari yang terbaru
     }
 }

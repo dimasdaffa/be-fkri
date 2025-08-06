@@ -8,7 +8,6 @@ use App\Http\Controllers\Api\ProposalController;
 use App\Http\Controllers\Api\SubbagController;
 use App\Http\Controllers\Api\KabidController;
 use App\Http\Controllers\Api\KepalaController;
-use App\Http\Controllers\Api\NotificationController;
 
 // Endpoint untuk Autentikasi & Registrasi (Publik)
 Route::post('/register', [AuthController::class, 'register']);
@@ -18,13 +17,15 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/fcm-token', [ProfileController::class, 'updateFcmToken']);
     Route::post('/logout', [AuthController::class, 'logout']);
-    Route::get('/notifications', [NotificationController::class, 'index']);
+
+    // Test Notifications Endpoint (hanya untuk development)
+    Route::post('/test-notification', [App\Http\Controllers\Api\TestNotificationController::class, 'testFcm']);
 
     // Profile (untuk semua role)
     Route::get('/profile', [ProfileController::class, 'show']);
     Route::put('/profile', [ProfileController::class, 'update']);
 
-    // Fitur Pengusul
+    // Fitur Pengusuld
     Route::prefix('pengusul')->middleware('role:pengusul')->group(function () {
         Route::get('/proposals', [ProposalController::class, 'index']);
         Route::post('/proposals', [ProposalController::class, 'store']);
@@ -43,7 +44,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Fitur Kabid KRPI
     Route::prefix('kabid')->middleware('role:kabid_krpi')->group(function () {
         Route::get('/proposals', [KabidController::class, 'index']);
-        Route::get('/proposals/{id}', [KabidController::class, 'show']); 
+        Route::get('/proposals/{id}', [KabidController::class, 'show']);
         Route::put('/proposals/{id}/decide', [KabidController::class, 'decide']); // Approve/reject
     });
 

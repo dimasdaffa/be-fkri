@@ -5,17 +5,12 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Proposal;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
-
-// ✅ Import model dan kelas-kelas yang dibutuhkan
-use App\Models\NotificationLog;
-use Kreait\Firebase\Messaging\CloudMessage;
-use Kreait\Firebase\Messaging\Notification;
 
 class KepalaController extends Controller
 {
     /**
      * Menampilkan daftar usulan yang relevan untuk Kepala BRIDA.
+     * Termasuk yang sedang menunggu keputusan dan yang sudah diputuskan.
      */
     public function index()
     {
@@ -61,7 +56,6 @@ class KepalaController extends Controller
         return response()->json($proposal);
     }
 
-
     /**
      * Memberikan keputusan final (approve/reject).
      */
@@ -74,42 +68,12 @@ class KepalaController extends Controller
 
         $proposal = Proposal::where('status', 'diproses_kepala')->findOrFail($id);
 
-        $status = ($validated['keputusan'] === 'approve') ? 'disetujui' : 'ditolak_kepala';
+        $status = ($validated['keputusan'] === 'approve') ? 'disetujui' : 'ditolak';
 
         $proposal->update([
             'status'         => $status,
             'catatan_kepala' => $validated['catatan'],
         ]);
-
-        // ✅ LOGIKA NOTIFIKASI DAN LOGGING
-        $pengusul = $proposal->user;
-        
-        if ($pengusul && $pengusul->fcm_token) {
-            $messaging = app('firebase.messaging');
-            $keputusanTeks = ($validated['keputusan'] === 'approve') ? 'Disetujui' : 'Ditolak';
-
-            $title = 'Keputusan Final Usulan';
-            $body = "Kabar baik! Usulan Anda dengan tema '{$proposal->tema_usulan}' telah {$keputusanTeks} oleh Kepala BRIDA.";
-
-            $message = CloudMessage::withTarget('token', $pengusul->fcm_token)
-                ->withNotification(Notification::create($title, $body))
-                ->withData(['proposal_id' => (string)$proposal->id]);
-
-            try {
-                $messaging->send($message);
-                
-                // SIMPAN LOG KE DATABASE
-                NotificationLog::create([
-                    'user_id' => $pengusul->id,
-                    'title' => $title,
-                    'body' => $body,
-                ]);
-
-            } catch (\Exception $e) {
-                Log::error('FCM Send Error (Kepala): ' . $e->getMessage());
-            }
-        }
-        // --- AKHIR LOGIKA NOTIFIKASI ---
 
         return response()->json([
             'message' => 'Keputusan final Kepala BRIDA berhasil disimpan.',

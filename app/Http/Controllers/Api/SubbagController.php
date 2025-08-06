@@ -3,107 +3,95 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\NotificationLog;
 use App\Models\Proposal;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
-use Illuminate\Support\Facades\Log;
-use Kreait\Firebase\Messaging\CloudMessage;
-use Kreait\Firebase\Messaging\Notification;
-
-// Hapus use statement yang tidak terpakai
-// use App\Notifications\ProposalApprovedBySubbag; 
+// 1. Import kelas Notifikasi yang sudah kita buat
+use App\Notifications\ProposalApprovedBySubbag;
 
 class SubbagController extends Controller
 {
     /**
-     * ✅ FUNGSI INDEX YANG DIPERBARUI
-     * Menampilkan daftar usulan di wilayah kewenangan Subbag, baik yang
-     * masih menunggu penilaian maupun yang sudah diproses oleh Subbag.
+     * Menampilkan daftar usulan sesuai wilayah kewenangan Subbag.
+     * Hanya menampilkan usulan yang relevan untuk dinilai.
      */
     public function index()
     {
         $user = Auth::user();
-        $wilayah = $user->wilayah_kewenangan;
 
-        $proposals = Proposal::where('wilayah_kewenangan_lembaga', $wilayah)
-            ->where(function ($query) {
-                // 1. Tampilkan yang masih butuh penilaian Subbag
-                $query->where('status', 'diajukan');
-
-                // 2. Tampilkan yang sudah diteruskan oleh Subbag ke Kabid
-                $query->orWhere('status', 'diproses_kabid');
-                
-                // 3. Tampilkan yang sudah diproses lebih lanjut oleh Kabid/Kepala
-                $query->orWhere('status', 'diproses_kepala');
-                $query->orWhere('status', 'disetujui');
-
-                // 4. Tampilkan yang DITOLAK di semua level
-                $query->orWhere('status', 'ditolak_subbag');
-                $query->orWhere('status', 'ditolak_kabid');
-                $query->orWhere('status', 'ditolak_kepala');
-            })
-            ->latest() // Urutkan dari yang terbaru
+        // Menampilkan usulan yang baru diajukan atau yang sudah diproses oleh peran lain
+        $proposals = Proposal::where('wilayah_kewenangan_lembaga', $user->wilayah_kewenangan)
+            ->where('status', 'diajukan') // Hanya tampilkan yang butuh penilaian Subbag
+            ->latest()
             ->get();
 
         return response()->json($proposals);
     }
 
     /**
-     * ✅ FUNGSI SHOW YANG DIPERBARUI
-     * Menampilkan detail satu usulan. Otorisasi tetap berdasarkan wilayah.
+     * Menampilkan detail satu usulan.
      */
     public function show(string $id)
     {
         $user = Auth::user();
-        $proposal = Proposal::with('user')->findOrFail($id);
+        $proposal = Proposal::with('user')->findOrFail($id); // 'with('user')' untuk mengambil data pengusul
 
-        // Otorisasi: Pastikan Subbag hanya bisa melihat usulan di wilayahnya.
-        // Ini adalah pengaman utama.
+        // Otorisasi: Pastikan Subbag hanya bisa melihat usulan di wilayahnya
         if ($proposal->wilayah_kewenangan_lembaga !== $user->wilayah_kewenangan) {
             return response()->json(['message' => 'Anda tidak memiliki wewenang untuk melihat usulan ini.'], 403);
         }
 
-        // Tidak perlu filter status di sini karena otorisasi wilayah sudah cukup.
-        // Jika Subbag punya wewenang, dia boleh lihat detailnya apapun statusnya.
         return response()->json($proposal);
     }
 
     /**
-     * Menilai sebuah usulan (approve/reject) dan mengirim notifikasi.
-     * Kode ini sudah disempurnakan dan tidak perlu diubah lagi.
+     * Menilai sebuah usulan (approve/reject) dan mengirim notifikasi jika disetujui.
      */
     public function assess(Request $request, string $id)
     {
         $user = Auth::user();
 
+        // Validasi input dari request
         $validated = $request->validate([
             'penilaian' => ['required', Rule::in(['urgent', 'penting', 'normal', 'tidak_penting'])],
             'keputusan' => ['required', Rule::in(['approve', 'reject'])],
             'catatan' => ['nullable', 'string', 'max:5000'],
         ]);
 
-        // Otorisasi hanya pada proposal yang statusnya masih 'diajukan'
-        $proposal = Proposal::where('status', 'diajukan')->findOrFail($id);
-        
+        $proposal = Proposal::findOrFail($id);
+
+        // Otorisasi: Pastikan Subbag hanya bisa menilai usulan di wilayahnya
         if ($proposal->wilayah_kewenangan_lembaga !== $user->wilayah_kewenangan) {
             return response()->json(['message' => 'Anda tidak memiliki wewenang untuk menilai usulan ini.'], 403);
         }
-        
-        // Logika skor dan warna...
+
+        // Logika untuk menentukan skor dan warna berdasarkan penilaian
         $skor = 0;
         $warna = '';
         switch ($validated['penilaian']) {
-            case 'urgent': $skor = 100; $warna = 'merah'; break;
-            case 'penting': $skor = 80; $warna = 'merah muda'; break;
-            case 'normal': $skor = 60; $warna = 'biru'; break;
-            case 'tidak_penting': $skor = 40; $warna = 'gray'; break;
+            case 'urgent':
+                $skor = 100;
+                $warna = 'merah';
+                break;
+            case 'penting':
+                $skor = 80;
+                $warna = 'merah muda';
+                break;
+            case 'normal':
+                $skor = 60;
+                $warna = 'biru';
+                break;
+            case 'tidak_penting':
+                $skor = 40; // Sebelumnya 40, bisa disesuaikan
+                $warna = 'gray';
+                break;
         }
 
+        // Tentukan status akhir berdasarkan keputusan
         $status = ($validated['keputusan'] === 'approve') ? 'diproses_kabid' : 'ditolak_subbag';
 
-        // Update proposal
+        // Update data proposal di database
         $proposal->update([
             'skor' => $skor,
             'warna' => $warna,
@@ -111,26 +99,24 @@ class SubbagController extends Controller
             'catatan_subbag' => $validated['catatan'],
         ]);
 
-        // Logika notifikasi dan logging...
-        $pengusul = $proposal->user;
-        if ($pengusul && $pengusul->fcm_token) {
-            $messaging = app('firebase.messaging');
-            $keputusanTeks = ($validated['keputusan'] === 'approve') ? 'dilanjutkan ke Kabid' : 'ditolak';
-            $title = 'Status Usulan Diperbarui';
-            $body = "Usulan Anda dengan tema '{$proposal->tema_usulan}' telah {$keputusanTeks} oleh Subbag Program.";
+        // --- LOGIKA PENGIRIMAN NOTIFIKASI ---
+        // Kirim notifikasi HANYA JIKA keputusan adalah 'approve'
+        if ($validated['keputusan'] === 'approve') {
+            // Ambil data user pengusul dari relasi yang ada di model Proposal
+            $pengusul = $proposal->user;
 
-            $message = CloudMessage::withTarget('token', $pengusul->fcm_token)
-                ->withNotification(Notification::create($title, $body))
-                ->withData(['proposal_id' => (string)$proposal->id]);
-
-            try {
-                $messaging->send($message);
-                NotificationLog::create(['user_id' => $pengusul->id, 'title' => $title, 'body' => $body]);
-            } catch (\Exception $e) {
-                Log::error('FCM Send Error: ' . $e->getMessage());
+            // Pastikan data pengusul ada dan memiliki fcm_token yang tersimpan
+            if ($pengusul && $pengusul->fcm_token) {
+                // Kirim notifikasi ke pengusul menggunakan kelas notifikasi yang sudah kita buat
+                $pengusul->notify(new ProposalApprovedBySubbag($proposal));
             }
         }
-        
-        return response()->json(['message' => 'Usulan berhasil dinilai.', 'data' => $proposal->fresh()]);
+        // --- AKHIR LOGIKA NOTIFIKASI ---
+
+        // Kembalikan respons sukses dengan data proposal yang sudah ter-update
+        return response()->json([
+            'message' => 'Usulan berhasil dinilai.',
+            'data' => $proposal->fresh(), // .fresh() untuk mengambil data terbaru dari DB
+        ]);
     }
 }
