@@ -22,7 +22,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/profile', [ProfileController::class, 'show']);
     Route::put('/profile', [ProfileController::class, 'update']);
 
-    // Fitur Pengusul
+    // Fitur Pengusuld
     Route::prefix('pengusul')->middleware('role:pengusul')->group(function () {
         Route::get('/proposals', [ProposalController::class, 'index']);
         Route::post('/proposals', [ProposalController::class, 'store']);
@@ -41,7 +41,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Fitur Kabid KRPI
     Route::prefix('kabid')->middleware('role:kabid_krpi')->group(function () {
         Route::get('/proposals', [KabidController::class, 'index']);
-        Route::get('/proposals/{id}', [KabidController::class, 'show']); 
+        Route::get('/proposals/{id}', [KabidController::class, 'show']);
         Route::put('/proposals/{id}/decide', [KabidController::class, 'decide']); // Approve/reject
     });
 
