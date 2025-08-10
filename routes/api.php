@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\ProposalController;
 use App\Http\Controllers\Api\SubbagController;
 use App\Http\Controllers\Api\KabidController;
 use App\Http\Controllers\Api\KepalaController;
+use App\Http\Controllers\Api\NotificationController;
 
 // Endpoint untuk Autentikasi & Registrasi (Publik)
 Route::post('/register', [AuthController::class, 'register']);
@@ -24,6 +25,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Profile (untuk semua role)
     Route::get('/profile', [ProfileController::class, 'show']);
     Route::put('/profile', [ProfileController::class, 'update']);
+    Route::get('/notifications', [NotificationController::class, 'index']);
 
     // Fitur Pengusuld
     Route::prefix('pengusul')->middleware('role:pengusul')->group(function () {
