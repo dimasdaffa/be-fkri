@@ -42,11 +42,21 @@ class ProposalController extends Controller
             'file_dukungan' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:2048'], // Max 2MB
         ]);
 
+        // --- MODIFICATION START ---
+        // Business Logic: If the institution is not 'pemerintah',
+        // automatically assign its region to 'Kota Semarang' for the Subbag to review.
+        if ($validated['jenis_lembaga'] !== 'pemerintah') {
+            $validated['wilayah_kewenangan_lembaga'] = 'Kota Semarang';
+        }
+        // --- MODIFICATION END ---
+
+
         $filePath = null;
         if ($request->hasFile('file_dukungan')) {
-            $filePath = $request->file('file_dukungan')->store('file_dukungan', 'public');        
+            $filePath = $request->file('file_dukungan')->store('file_dukungan', 'public');
         }
 
+        // The $validated array now contains the correct 'wilayah_kewenangan_lembaga'
         $proposal = Proposal::create(array_merge($validated, [
             'user_id' => $user->id,
             'nama_pengusul' => $user->full_name,
@@ -122,7 +132,7 @@ class ProposalController extends Controller
                 Storage::delete($proposal->file_dukungan_path);
             }
             // Simpan file baru
-            $validated['file_dukungan_path'] = $request->file('file_dukungan')->store('file_dukungan', 'public');       
+            $validated['file_dukungan_path'] = $request->file('file_dukungan')->store('file_dukungan', 'public');
         }
 
         $proposal->update($validated);

@@ -36,9 +36,13 @@ return [
     ],
 
     'fcm' => [
-        'driver' => 'fcm',
-        // Arahkan ke path file JSON yang sudah Anda simpan
-        'service_account_credentials_json' => storage_path('app/firebase/be-fkri-firebase-adminsdk-fbsvc-a48d4b9dbf.json'),
+        // Komentari atau hapus baris lama yang merujuk ke file
+        // 'credentials' => storage_path('app/firebase/be-fkri-firebase-adminsdk-fbsvc-a48d4b9dbf.json'),
+
+        // Tambahkan baris baru ini
+        'credentials' => env('FIREBASE_CREDENTIALS_JSON')
+            ? json_decode(env('FIREBASE_CREDENTIALS_JSON'), true)
+            : null, // atau path ke file default jika variabel tidak ada
     ],
 
 ];
